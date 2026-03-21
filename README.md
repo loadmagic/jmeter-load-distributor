@@ -1,4 +1,4 @@
-# JMeter Distributed Load Throttle
+# JMeter Distributed Load Distributor
 
 Automatically distributes thread counts across JMeter generators for distributed testing. Set your total desired load once, specify the number of generators at runtime, and each generator runs exactly its fair share.
 
@@ -81,7 +81,7 @@ Timings unchanged — only thread counts divided.
 
 ## Installation
 
-1. Download `jmeter-load-throttle-1.0.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-throttle/releases)
+1. Download `jmeter-load-distributor-1.0.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-throttle/releases)
 2. Copy to `<jmeter>/lib/ext/`
 3. Restart JMeter
 
@@ -90,7 +90,7 @@ Or install via JMeter Plugins Manager (coming soon).
 ## Usage
 
 1. Open your test plan in JMeter
-2. Right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Throttler**
+2. Right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Distributorr**
 3. Save the test plan
 4. Run each generator with `-Jgenerator.id=N -Jgenerator.count=TOTAL`
 
@@ -108,7 +108,7 @@ Thread count modifications are **in-memory only**. JMeter's running version mech
 mvn clean package
 ```
 
-The JAR is at `target/jmeter-load-throttle-1.0.0.jar`.
+The JAR is at `target/jmeter-load-distributor-1.0.0.jar`.
 
 ## License
 
