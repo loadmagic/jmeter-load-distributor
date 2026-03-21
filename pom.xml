@@ -5,17 +5,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>ai.loadmagic</groupId>
-    <artifactId>jmeter-load-throttle</artifactId>
+    <artifactId>jmeter-load-distributor</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
 
-    <name>JMeter Distributed Load Throttle</name>
+    <name>JMeter Load Distributor</name>
     <description>
         Automatically distributes thread counts across JMeter generators for distributed testing.
         Set your total desired load once, specify the number of generators at runtime,
         and each generator runs exactly its fair share.
     </description>
-    <url>https://github.com/loadmagic/jmeter-load-throttle</url>
+    <url>https://github.com/loadmagic/jmeter-load-distributor</url>
 
     <licenses>
         <license>
