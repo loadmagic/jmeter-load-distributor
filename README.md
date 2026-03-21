@@ -81,7 +81,7 @@ Timings unchanged — only thread counts divided.
 
 ## Installation
 
-1. Download `jmeter-load-distributor-1.0.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-throttle/releases)
+1. Download `jmeter-load-distributor-1.0.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-distributor/releases)
 2. Copy to `<jmeter>/lib/ext/`
 3. Restart JMeter
 
@@ -90,7 +90,7 @@ Or install via JMeter Plugins Manager (coming soon).
 ## Usage
 
 1. Open your test plan in JMeter
-2. Right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Distributorr**
+2. Right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Distributor**
 3. Save the test plan
 4. Run each generator with `-Jgenerator.id=N -Jgenerator.count=TOTAL`
 
