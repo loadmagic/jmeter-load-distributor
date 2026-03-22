@@ -79,6 +79,11 @@ Generator 2 gets:
 Timings unchanged — only thread counts divided.
 ```
 
+## Requirements
+
+- **Java 11 or later** (the plugin is compiled with target Java 11)
+- **JMeter 5.0+** (tested with 5.6.3)
+
 ## Installation
 
 1. Download `jmeter-load-distributor-1.1.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-distributor/releases)
