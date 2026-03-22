@@ -2,6 +2,8 @@
 
 Automatically distributes thread counts across JMeter generators for distributed testing. Set your total desired load once, specify the number of generators at runtime, and each generator runs exactly its fair share.
 
+![Load Distributor auto-activation demo](docs/screenshot.png)
+
 ## The Problem
 
 In JMeter distributed testing, every generator runs the **full** thread count from the test plan:
