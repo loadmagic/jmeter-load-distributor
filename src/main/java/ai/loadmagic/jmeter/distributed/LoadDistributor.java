@@ -24,10 +24,19 @@ import java.util.List;
  * Distributed Load Distributor — automatically distributes thread counts
  * across JMeter generators for distributed testing.
  *
- * <p>Place this element at the Test Plan level. At test start, it reads
- * two JMeter properties ({@code generator.id} and {@code generator.count}),
- * then adjusts every ThreadGroup's thread count so this generator runs
- * exactly its fair share of the total load.</p>
+ * <p>Can be activated in two ways:</p>
+ * <ol>
+ *   <li><strong>Auto-activation (recommended):</strong> Simply drop the JAR into
+ *       {@code lib/ext/} and pass {@code -Jgenerator.id} and {@code -Jgenerator.count}
+ *       at the command line. The plugin registers itself automatically via
+ *       {@link LoadDistributorAutoActivator} — no test plan changes needed.</li>
+ *   <li><strong>Test plan element:</strong> Add as a Config Element at the Test Plan
+ *       level. This is optional but supported for backward compatibility.</li>
+ * </ol>
+ *
+ * <p>At test start, it reads two JMeter properties ({@code generator.id} and
+ * {@code generator.count}), then adjusts every ThreadGroup's thread count so
+ * this generator runs exactly its fair share of the total load.</p>
  *
  * <p>Usage: {@code jmeter -Jgenerator.id=2 -Jgenerator.count=3 -t test.jmx}</p>
  *
@@ -37,6 +46,9 @@ import java.util.List;
  * <p>Thread count modifications are non-destructive — JMeter's running version
  * mechanism automatically restores original values when the test ends.
  * The .jmx file is never modified.</p>
+ *
+ * <p>If both auto-activation and a test plan element are present, distribution
+ * runs only once — duplicate invocation is prevented automatically.</p>
  */
 public class LoadDistributor extends AbstractTestElement implements TestStateListener {
 
@@ -61,6 +73,9 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
     private static volatile Field engineField;
     private static volatile Field testTreeField;
 
+    // Prevents duplicate distribution when both auto-activator and test plan element are present
+    private static volatile boolean distributed = false;
+
     @Override
     public void testStarted() {
         distribute();
@@ -73,17 +88,23 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
 
     @Override
     public void testEnded() {
-        // recoverRunningVersion() handles restoration automatically
+        distributed = false; // Reset for next test run in same JVM (GUI mode)
     }
 
     @Override
     public void testEnded(String host) {
-        // recoverRunningVersion() handles restoration automatically
+        distributed = false;
     }
 
     // ---- Main entry point ----
 
-    private void distribute() {
+    private synchronized void distribute() {
+        if (distributed) {
+            log.info("Load Distributor: Already distributed by another instance "
+                    + "(auto-activator or test plan element). Skipping.");
+            return;
+        }
+
         int id = parseIntProperty(PROP_GENERATOR_ID, 0);
         int count = parseIntProperty(PROP_GENERATOR_COUNT, 0);
 
@@ -116,6 +137,10 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
             distributeGroup(group, id, count);
             groupCount++;
         }
+
+        distributed = true;
+        // Prevent auto-activator from registering again if Function SPI re-initialises
+        LoadDistributorAutoActivator.markRegisteredByTestPlan();
 
         log.info("Load Distributor: Generator {}/{} — distributed load across {} thread group(s).",
                 id, count, groupCount);

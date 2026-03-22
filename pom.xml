@@ -6,7 +6,7 @@
 
     <groupId>ai.loadmagic</groupId>
     <artifactId>jmeter-load-distributor</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
     <packaging>jar</packaging>
 
     <name>JMeter Load Distributor</name>
@@ -85,6 +85,7 @@
                             <Implementation-Title>${project.name}</Implementation-Title>
                             <Implementation-Version>${project.version}</Implementation-Version>
                             <Implementation-Vendor>LoadMagic</Implementation-Vendor>
+                            <JMeter-Skip-Class-Scanning>true</JMeter-Skip-Class-Scanning>
                         </manifestEntries>
                     </archive>
                 </configuration>
