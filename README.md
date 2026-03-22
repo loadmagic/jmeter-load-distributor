@@ -14,7 +14,7 @@ To get 100 total, you manually calculate 25 threads per generator and edit the t
 
 ## The Solution
 
-Drop this plugin into your test plan. At runtime, tell each generator its ID and the total count:
+Drop this plugin into `lib/ext/`. At runtime, tell each generator its ID and the total count:
 
 ```bash
 # Generator 1 of 3
@@ -81,7 +81,7 @@ Timings unchanged — only thread counts divided.
 
 ## Installation
 
-1. Download `jmeter-load-distributor-1.0.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-distributor/releases)
+1. Download `jmeter-load-distributor-1.1.0.jar` from [Releases](https://github.com/loadmagic/jmeter-load-distributor/releases)
 2. Copy to `<jmeter>/lib/ext/`
 3. Restart JMeter
 
@@ -89,14 +89,23 @@ Or install via JMeter Plugins Manager (coming soon).
 
 ## Usage
 
-1. Open your test plan in JMeter
-2. Right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Distributor**
-3. Save the test plan
-4. Run each generator with `-Jgenerator.id=N -Jgenerator.count=TOTAL`
+Just run each generator with the properties — no test plan changes needed:
+
+```bash
+jmeter -Jgenerator.id=1 -Jgenerator.count=3 -n -t test.jmx
+```
+
+The plugin auto-activates when it detects `-Jgenerator.id` and `-Jgenerator.count`. It uses JMeter's `StandardJMeterEngine.register()` API to hook into the test lifecycle without needing a Config Element in your .jmx file.
+
+This means you can use it across any number of test plans with zero modifications.
 
 ### Without the Properties
 
 If you run without `-Jgenerator.id` and `-Jgenerator.count`, the plugin does nothing — your test runs at full load. This means the same .jmx works for both single-node and distributed testing.
+
+### Config Element (optional)
+
+For backward compatibility, you can still add the plugin as a Config Element: right-click **Test Plan** → **Add** → **Config Element** → **Distributed Load Distributor**. If both auto-activation and the Config Element are present, distribution runs only once.
 
 ## Non-Destructive
 
@@ -108,7 +117,7 @@ Thread count modifications are **in-memory only**. JMeter's running version mech
 mvn clean package
 ```
 
-The JAR is at `target/jmeter-load-distributor-1.0.0.jar`.
+The JAR is at `target/jmeter-load-distributor-1.1.0.jar`.
 
 ## License
 
