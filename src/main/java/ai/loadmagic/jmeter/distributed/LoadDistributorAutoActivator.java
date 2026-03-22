@@ -56,16 +56,25 @@ public class LoadDistributorAutoActivator extends AbstractFunction {
 
         String id = JMeterUtils.getProperty(LoadDistributor.PROP_GENERATOR_ID);
         String count = JMeterUtils.getProperty(LoadDistributor.PROP_GENERATOR_COUNT);
+        String hosts = JMeterUtils.getProperty(LoadDistributor.PROP_GENERATOR_HOSTS);
 
-        if (id != null && !id.trim().isEmpty()
-                && count != null && !count.trim().isEmpty()) {
+        boolean hasIdCount = id != null && !id.trim().isEmpty()
+                && count != null && !count.trim().isEmpty();
+        boolean hasHosts = hosts != null && !hosts.trim().isEmpty();
+
+        if (hasIdCount || hasHosts) {
             LoadDistributor distributor = new LoadDistributor();
             distributor.setName("Load Distributor (auto-activated)");
             StandardJMeterEngine.register(distributor);
             registered = true;
-            log.info("Load Distributor: Auto-activated via properties "
-                    + "(generator.id={}, generator.count={}). "
-                    + "No test plan element required.", id.trim(), count.trim());
+            if (hasHosts) {
+                log.info("Load Distributor: Auto-activated via generator.hosts={}. "
+                        + "No test plan element required.", hosts.trim());
+            } else {
+                log.info("Load Distributor: Auto-activated via properties "
+                        + "(generator.id={}, generator.count={}). "
+                        + "No test plan element required.", id.trim(), count.trim());
+            }
         }
     }
 

@@ -18,27 +18,36 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 
 /**
  * Distributed Load Distributor — automatically distributes thread counts
  * across JMeter generators for distributed testing.
  *
- * <p>Can be activated in two ways:</p>
+ * <p>Three modes of operation:</p>
  * <ol>
- *   <li><strong>Auto-activation (recommended):</strong> Simply drop the JAR into
- *       {@code lib/ext/} and pass {@code -Jgenerator.id} and {@code -Jgenerator.count}
- *       at the command line. The plugin registers itself automatically via
- *       {@link LoadDistributorAutoActivator} — no test plan changes needed.</li>
+ *   <li><strong>Distributed mode (JMeter remote testing):</strong> Pass
+ *       {@code -Ggenerator.hosts=slave1,slave2,slave3} on the master command line.
+ *       Each slave auto-detects its position in the list to derive its ID and count.
+ *       Works with standard {@code jmeter -R} distributed testing.</li>
+ *   <li><strong>Standalone mode:</strong> Pass {@code -Jgenerator.id} and
+ *       {@code -Jgenerator.count} on each independently-launched generator.</li>
  *   <li><strong>Test plan element:</strong> Add as a Config Element at the Test Plan
- *       level. This is optional but supported for backward compatibility.</li>
+ *       level. Optional — supported for backward compatibility.</li>
  * </ol>
  *
- * <p>At test start, it reads two JMeter properties ({@code generator.id} and
- * {@code generator.count}), then adjusts every ThreadGroup's thread count so
- * this generator runs exactly its fair share of the total load.</p>
+ * <p>At test start, it adjusts every ThreadGroup's thread count so this generator
+ * runs exactly its fair share of the total load.</p>
  *
- * <p>Usage: {@code jmeter -Jgenerator.id=2 -Jgenerator.count=3 -t test.jmx}</p>
+ * <p>Distributed usage:
+ * {@code jmeter -n -t test.jmx -R slave1,slave2,slave3 -Ggenerator.hosts=slave1,slave2,slave3}</p>
+ *
+ * <p>Standalone usage:
+ * {@code jmeter -Jgenerator.id=2 -Jgenerator.count=3 -t test.jmx}</p>
  *
  * <p>Supports: Standard ThreadGroup, Ultimate Thread Group (jpgc-casutg),
  * Concurrency Thread Group, Stepping Thread Group.</p>
@@ -55,9 +64,10 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
     private static final long serialVersionUID = 1L;
     private static final Logger log = LoggerFactory.getLogger(LoadDistributor.class);
 
-    // JMeter properties (set via -J on command line)
+    // JMeter properties (set via -J or -G on command line)
     public static final String PROP_GENERATOR_ID = "generator.id";
     public static final String PROP_GENERATOR_COUNT = "generator.count";
+    public static final String PROP_GENERATOR_HOSTS = "generator.hosts";
 
     // ThreadGroup type detection — by class name to avoid compile-time dependency
     private static final String UTG_CLASS = "kg.apc.jmeter.threads.UltimateThreadGroup";
@@ -108,9 +118,18 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
         int id = parseIntProperty(PROP_GENERATOR_ID, 0);
         int count = parseIntProperty(PROP_GENERATOR_COUNT, 0);
 
+        // If id/count not set, try to derive from generator.hosts
+        if (count <= 0 || id <= 0) {
+            int[] resolved = resolveFromHosts();
+            if (resolved != null) {
+                id = resolved[0];
+                count = resolved[1];
+            }
+        }
+
         if (count <= 0 || id <= 0) {
             log.info("Load Distributor: No generator properties set "
-                    + "(-Jgenerator.id and -Jgenerator.count). "
+                    + "(-Jgenerator.id/-Jgenerator.count or -Ggenerator.hosts). "
                     + "Running full load on this node.");
             return;
         }
@@ -288,6 +307,107 @@ public class LoadDistributor extends AbstractTestElement implements TestStateLis
             log.error("Load Distributor: Unexpected error accessing test tree.", e);
         }
         return null;
+    }
+
+    // ---- Host-based auto-detection (for JMeter distributed mode) ----
+
+    /**
+     * Resolves generator ID and count from the {@code generator.hosts} property.
+     *
+     * <p>When using JMeter's remote testing ({@code -R}), the master sends
+     * {@code -Ggenerator.hosts=slave1,slave2,slave3} to all slaves. Each slave
+     * finds its own hostname/IP in the list to determine its position (ID)
+     * and the total count.</p>
+     *
+     * <p>Matching is flexible: compares against hostname, fully-qualified hostname,
+     * all local IP addresses, and {@code java.rmi.server.hostname} if set.</p>
+     *
+     * @return int array [id, count], or null if hosts property is not set or
+     *         this machine is not found in the list
+     */
+    private int[] resolveFromHosts() {
+        String hostsStr = JMeterUtils.getProperty(PROP_GENERATOR_HOSTS);
+        if (hostsStr == null || hostsStr.trim().isEmpty()) {
+            return null;
+        }
+
+        String[] hosts = hostsStr.split(",");
+        List<String> hostList = new ArrayList<>();
+        for (String h : hosts) {
+            String trimmed = h.trim();
+            if (!trimmed.isEmpty()) {
+                hostList.add(trimmed);
+            }
+        }
+
+        if (hostList.isEmpty()) {
+            return null;
+        }
+
+        // Collect all local identities for matching
+        List<String> localIdentities = getLocalIdentities();
+
+        // Find our position in the host list (1-based)
+        for (int i = 0; i < hostList.size(); i++) {
+            String host = hostList.get(i);
+            for (String local : localIdentities) {
+                if (host.equalsIgnoreCase(local)) {
+                    int id = i + 1;
+                    int count = hostList.size();
+                    log.info("Load Distributor: Auto-detected from generator.hosts — "
+                            + "matched '{}' at position {}/{} (local identity: '{}').",
+                            host, id, count, local);
+                    return new int[]{id, count};
+                }
+            }
+        }
+
+        log.warn("Load Distributor: generator.hosts={} but this machine was not found "
+                + "in the list. Local identities: {}. Running full load.",
+                hostsStr, localIdentities);
+        return null;
+    }
+
+    /**
+     * Collects all local hostnames and IP addresses for matching against the host list.
+     */
+    private List<String> getLocalIdentities() {
+        List<String> identities = new ArrayList<>();
+
+        // java.rmi.server.hostname (often set for JMeter slaves)
+        String rmiHost = System.getProperty("java.rmi.server.hostname");
+        if (rmiHost != null && !rmiHost.isEmpty()) {
+            identities.add(rmiHost);
+        }
+
+        try {
+            InetAddress localHost = InetAddress.getLocalHost();
+            identities.add(localHost.getHostName());
+            identities.add(localHost.getCanonicalHostName());
+            identities.add(localHost.getHostAddress());
+        } catch (Exception e) {
+            log.debug("Load Distributor: Could not resolve local hostname.", e);
+        }
+
+        // All network interface addresses (handles multi-homed hosts)
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            if (interfaces != null) {
+                while (interfaces.hasMoreElements()) {
+                    NetworkInterface ni = interfaces.nextElement();
+                    Enumeration<InetAddress> addrs = ni.getInetAddresses();
+                    while (addrs.hasMoreElements()) {
+                        InetAddress addr = addrs.nextElement();
+                        identities.add(addr.getHostAddress());
+                        identities.add(addr.getHostName());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Load Distributor: Could not enumerate network interfaces.", e);
+        }
+
+        return identities;
     }
 
     // ---- Utilities ----
